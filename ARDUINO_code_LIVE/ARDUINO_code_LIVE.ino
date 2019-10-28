@@ -1,11 +1,4 @@
-
-
-
-
 /*
-  DIY Gimbal - MPU6050 Arduino Tutorial
-  by Dejan, www.HowToMechatronics.com
-  Code based on the MPU6050_DMP6 example from the i2cdevlib library by Jeff Rowberg:
   https://github.com/jrowberg/i2cdevlib
 */
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
