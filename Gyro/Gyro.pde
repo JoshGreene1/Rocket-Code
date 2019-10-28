@@ -4,9 +4,11 @@ Serial myPort;  // Create object from Serial class
 String val;     // Data received from the serial port
 PFont f; 
 JSONObject json;
+PrintWriter output;
 
 void setup()
 {
+  output = createWriter("positions.txt");
   // I know that the first port in the serial list on my mac
   // is Serial.list()[0].
   // On Windows machines, this generally opens COM1.
@@ -38,6 +40,9 @@ void draw()
     json = parseJSONObject(val);
     m1 = json.getInt("M1");
     m2 = json.getInt("M2");
+    output.println(val+"\n");
+    output.flush(); // Writes the remaining data to the file
+    
     } catch (RuntimeException x){}
     
     text("Motor 1 = " + str(m1),20,225);

@@ -4,6 +4,7 @@ float radius = 99;
 float cylinderLength = 95;
 int x = 0;
 int y = 0;
+PrintWriter output;
 import processing.serial.*;
 Serial myPort;  // Create object from Serial class
 String val;     // Data received from the serial port
@@ -14,6 +15,7 @@ boolean isPyramid = false;
 
 
 void setup(){
+  output = createWriter("positions.txt");
   size(640, 360, P3D);
   noStroke();
   String portName = Serial.list()[0]; //change the 0 to a 1 or 2 etc. to match your port
@@ -31,6 +33,8 @@ void draw(){
     json = parseJSONObject(val);
     x = json.getInt("M1")-90;
     y = json.getInt("M2")-90;
+    output.println(val+"\n");
+    output.flush(); 
     } catch (RuntimeException x){}}
   println(val); 
   background(170, 95, 95);
