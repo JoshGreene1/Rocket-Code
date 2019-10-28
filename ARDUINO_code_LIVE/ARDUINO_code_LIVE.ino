@@ -121,8 +121,8 @@ void setup() {
   }
 
   // Define the pins to which the 3 servo motors are connected
-  servo0.attach(10);
-  servo1.attach(9);
+  servo0.attach(10);//#
+  servo1.attach(9);//#
   servo2.attach(8);
   pinMode(12, OUTPUT);
   digitalWrite(12,LOW);
@@ -203,9 +203,10 @@ void loop() {
       Serial.print(servo0Value);
       Serial.print(",\"M2\":");
       Serial.print(servo1Value);
-      Serial.println("}\n");      
+      Serial.println("}\n");     
+      digitalWrite(12, HIGH); 
     }
 #endif
   }
-  digitalWrite(12, HIGH);
+  
 }
