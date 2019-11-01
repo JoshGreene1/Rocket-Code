@@ -14,6 +14,13 @@
 #include "Wire.h"
 #endif
 #include <Servo.h>
+#include <SPI.h>
+#include <SD.h>
+#include <Wire.h>
+#include "SparkFunBME280.h"
+
+
+#define SerialLog false
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here
 // AD0 low = 0x68 (default for SparkFun breakout and InvenSense evaluation board)
@@ -25,6 +32,7 @@ MPU6050 mpu;
 Servo servo0;
 Servo servo1;
 Servo servo2;
+BME280 mySensor;
 float correct;
 int j = 0;
 
@@ -54,7 +62,7 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 // packet structure for InvenSense teapot demo
 uint8_t teapotPacket[14] = { '$', 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, '\r', '\n' };
 
-
+bool sd = true;
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -64,11 +72,13 @@ volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin h
 void dmpDataReady() {
   mpuInterrupt = true;
 }
-
 // ================================================================
 // ===                      INITIAL SETUP                       ===
 // ================================================================
+File myFile;
+int GroundAlt = 0;
 
+#define Altitude() round(mySensor.readFloatAltitudeMeters()) - GroundAlt
 void setup() {
   // join I2C bus (I2Cdev library doesn't do this automatically)
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -77,13 +87,19 @@ void setup() {
 #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
   Fastwire::setup(400, true);
 #endif
-
+mySensor.setI2CAddress(0x76); //Connect to a second sensor
+  if(mySensor.beginI2C() == false) Serial.println("Alt Dev conn fail");
+  GroundAlt = round(mySensor.readFloatAltitudeMeters());  
   // initialize serial communication
   // (115200 chosen because it is required for Teapot Demo output, but it's
   // really up to you depending on your project)
   Serial.begin(115200);
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
-
+if (!SD.begin(10)) {
+    Serial.println("SD Card Log Failed");
+    sd = false;
+  } 
+  
   // initialize device
   //Serial.println(F("Initializing I2C devices..."));
   mpu.initialize();
@@ -121,18 +137,29 @@ void setup() {
   }
 
   // Define the pins to which the 3 servo motors are connected
-  servo0.attach(10);//#
-  servo1.attach(9);//#
-  servo2.attach(8);
-  pinMode(12, OUTPUT);
-  digitalWrite(12,LOW);
+  servo0.attach(7);//#
+  servo1.attach(6);//#
+
+  pinMode(3, OUTPUT);
+  digitalWrite(3,LOW);
 }
 // ================================================================
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
-
+int num = -20;
+bool ready001 = true;
 void loop() {
-  
+  if (sd){
+    if (num == -20)myFile = SD.open("log.txt", FILE_WRITE);
+    if (num > 100){
+      myFile.close();
+      myFile = SD.open("log.txt", FILE_WRITE);
+      Serial.println("Saved");
+      num = -1;
+    }
+    num++;
+    
+  }
   // if programming failed, don't try to do anything
   if (!dmpReady) return;
 
@@ -177,34 +204,53 @@ void loop() {
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
     // Yaw, Pitch, Roll values - Radians to degrees
-    ypr[0] = ypr[0] * 180 / M_PI;
+   // ypr[0] = ypr[0] * 180 / M_PI;
     ypr[1] = ypr[1] * 180 / M_PI;
     ypr[2] = ypr[2] * 180 / M_PI;
     
     // Skip 300 readings (self-calibration process)
     if (j <= 300) {
-      correct = ypr[0]; // Yaw starts at random value, so we capture last value after 300 readings
+     // correct = ypr[0]; // Yaw starts at random value, so we capture last value after 300 readings
       j++;
     }
     // After 300 readings
     else {
-      ypr[0] = ypr[0] - correct; // Set the Yaw to 0 deg - subtract  the last random Yaw value from the currrent value to make the Yaw 0 degrees
+     // ypr[0] = ypr[0] - correct; // Set the Yaw to 0 deg - subtract  the last random Yaw value from the currrent value to make the Yaw 0 degrees
       // Map the values of the MPU6050 sensor from -90 to 90 to values suatable for the servo control from 0 to 180
-      int servo0Value = map(ypr[0], -90, 90, 0, 180);
+     // int servo0Value = map(ypr[0], -90, 90, 0, 180);
       int servo1Value = map(ypr[1], -90, 90, 0, 180);
       int servo2Value = map(ypr[2], -90, 90, 180, 0);
       
       // Control the servos according to the MPU6050 orientation
-      servo0.write(servo0Value);
+      servo0.write(servo2Value);
       servo1.write(servo1Value);
-      servo2.write(servo2Value);
 
+      if (sd){
+      
+      if (myFile) {
+        //myFile.println("testing 1, 2, 3.");
+        myFile.write(servo2Value);
+        myFile.write(servo1Value);
+        int alt = Altitude();
+        if (alt <= 0) alt = 0;
+        myFile.write(alt);
+        
+      } else {
+        // if the file didn't open, print an error:
+        Serial.println("error opening log.txt");
+      }}
+      #if SerialLog == true
       Serial.print("{\"M1\":");
       Serial.print(servo0Value);
       Serial.print(",\"M2\":");
       Serial.print(servo1Value);
       Serial.println("}\n");     
-      digitalWrite(12, HIGH); 
+      Serial.print("ALT ");Serial.print(Altitude());Serial.println("M");
+      #endif
+      digitalWrite(3, HIGH); 
+      if (ready001)
+      Serial.println("Ready");
+      ready001 = false;
     }
 #endif
   }
