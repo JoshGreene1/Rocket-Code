@@ -20,7 +20,7 @@
 #include "SparkFunBME280.h"
 
 
-#define SerialLog false
+#define SerialLog true
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here
 // AD0 low = 0x68 (default for SparkFun breakout and InvenSense evaluation board)
@@ -78,7 +78,7 @@ void dmpDataReady() {
 File myFile;
 int GroundAlt = 0;
 
-#define Altitude() round(mySensor.readFloatAltitudeMeters()) - GroundAlt
+#define Altitude() round(mySensor.readFloatAltitudeFeet()) - GroundAlt
 void setup() {
   // join I2C bus (I2Cdev library doesn't do this automatically)
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -89,7 +89,7 @@ void setup() {
 #endif
 mySensor.setI2CAddress(0x76); //Connect to a second sensor
   if(mySensor.beginI2C() == false) Serial.println("Alt Dev conn fail");
-  GroundAlt = round(mySensor.readFloatAltitudeMeters());  
+  GroundAlt = round(mySensor.readFloatAltitudeFeet());  
   // initialize serial communication
   // (115200 chosen because it is required for Teapot Demo output, but it's
   // really up to you depending on your project)
@@ -101,20 +101,28 @@ if (!SD.begin(10)) {
   } 
   
   // initialize device
-  //Serial.println(F("Initializing I2C devices..."));
+  Serial.println(F("Initializing I2C devices..."));
   mpu.initialize();
   pinMode(INTERRUPT_PIN, INPUT);
   devStatus = mpu.dmpInitialize();
   // supply your own gyro offsets here, scaled for min sensitivity
+  /*
   mpu.setXGyroOffset(17);
   mpu.setYGyroOffset(-69);
   mpu.setZGyroOffset(27);
-  mpu.setZAccelOffset(1551); // 1688 factory default for my test chip
+  mpu.setZAccelOffset(1551); // 1688 factory default for my test chip*/
+
+  mpu.setXGyroOffset(157);
+  mpu.setYGyroOffset(57);
+  mpu.setZGyroOffset(2);
+  mpu.setXAccelOffset(-2004);
+  mpu.setYAccelOffset(47);
+  mpu.setZAccelOffset(203);
 
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
     // turn on the DMP, now that it's ready
-    // Serial.println(F("Enabling DMP..."));
+     Serial.println(F("Enabling DMP..."));
     mpu.setDMPEnabled(true);
 
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
@@ -219,17 +227,17 @@ void loop() {
       // Map the values of the MPU6050 sensor from -90 to 90 to values suatable for the servo control from 0 to 180
      // int servo0Value = map(ypr[0], -90, 90, 0, 180);
       int servo1Value = map(ypr[1], -90, 90, 0, 180);
-      int servo2Value = map(ypr[2], -90, 90, 180, 0);
+      int servo0Value = map(ypr[2], -90, 90, 180, 0);
       
       // Control the servos according to the MPU6050 orientation
-      servo0.write(servo2Value);
+      servo0.write(servo0Value);
       servo1.write(servo1Value);
 
       if (sd){
       
       if (myFile) {
         //myFile.println("testing 1, 2, 3.");
-        myFile.write(servo2Value);
+        myFile.write(servo0Value);
         myFile.write(servo1Value);
         int alt = Altitude();
         if (alt <= 0) alt = 0;
@@ -245,7 +253,7 @@ void loop() {
       Serial.print(",\"M2\":");
       Serial.print(servo1Value);
       Serial.println("}\n");     
-      Serial.print("ALT ");Serial.print(Altitude());Serial.println("M");
+      Serial.print("ALT ");Serial.print(Altitude());Serial.println("Feet");
       #endif
       digitalWrite(3, HIGH); 
       if (ready001)
