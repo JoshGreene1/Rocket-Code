@@ -17,7 +17,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include <Wire.h>
-#include "SparkFunBME280.h"
+#include <BMP280.h>
 
 
 #define SerialLog true
@@ -32,7 +32,8 @@ MPU6050 mpu;
 Servo servo0;
 Servo servo1;
 Servo servo2;
-BME280 mySensor;
+BMP280 bmp280;
+float init_pressure;
 float correct;
 int j = 0;
 
@@ -76,10 +77,12 @@ void dmpDataReady() {
 // ===                      INITIAL SETUP                       ===
 // ================================================================
 File myFile;
-int GroundAlt = 0;
 
-#define Altitude() round(mySensor.readFloatAltitudeFeet()) - GroundAlt
+
+#define Altitude() round(bmp280.calcAltitude(bmp280.getPressure(), init_pressure))
 void setup() {
+  Serial.begin(115200);
+  while (!Serial);
   // join I2C bus (I2Cdev library doesn't do this automatically)
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Wire.begin();
@@ -87,14 +90,15 @@ void setup() {
 #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
   Fastwire::setup(400, true);
 #endif
-mySensor.setI2CAddress(0x76); //Connect to a second sensor
-  if(mySensor.beginI2C() == false) Serial.println("Alt Dev conn fail");
-  GroundAlt = round(mySensor.readFloatAltitudeFeet());  
+
+if(!bmp280.init(0x76)){ // try 0x77 if not working
+    Serial.println("Alt Device error!");
+  }
+init_pressure = bmp280.getPressure();
   // initialize serial communication
   // (115200 chosen because it is required for Teapot Demo output, but it's
   // really up to you depending on your project)
-  Serial.begin(115200);
-  while (!Serial); // wait for Leonardo enumeration, others continue immediately
+   // wait for Leonardo enumeration, others continue immediately
 if (!SD.begin(10)) {
     Serial.println("SD Card Log Failed");
     sd = false;
@@ -252,8 +256,9 @@ void loop() {
       Serial.print(servo0Value);
       Serial.print(",\"M2\":");
       Serial.print(servo1Value);
-      Serial.println("}\n");     
-      Serial.print("ALT ");Serial.print(Altitude());Serial.println("Feet");
+      Serial.print(",\"ALT\":");
+      Serial.print(Altitude());
+      Serial.println("}");     
       #endif
       digitalWrite(3, HIGH); 
       if (ready001)
