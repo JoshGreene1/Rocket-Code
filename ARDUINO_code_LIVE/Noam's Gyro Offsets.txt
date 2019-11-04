@@ -1,0 +1,3 @@
+Your offsets:	-2004	47	203	157	57	2
+
+Data is printed as: acelX acelY acelZ giroX giroY giroZ
